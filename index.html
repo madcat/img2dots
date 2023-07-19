@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image to Geometry</title>
+    <link rel="stylesheet" href="src/index.css">
+</head>
+
+<body>
+    <div id="app" x-data="appState">
+        <div id="canvas-container">
+            <canvas id="canvas" x-ref="canvas"></canvas>
+        </div>
+        <div id="controls">
+            <div id="controls-container">
+                <div id="controls-container__input">
+                    <input type="file" id="file-input" accept="image/*" x-on:change="uploadImage">
+
+                </div>
+                <div id="controls-container__buttons">
+                    <button class="block button" x-on:click="sampleImage" :disabled="!uploaded">Sample</button>
+                </div>
+            </div>
+        </div>
+        <script type="module" src="src/main.js"></script>
+</body>
+
+</html>
