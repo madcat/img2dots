@@ -1,7 +1,7 @@
 
 import Alpine from 'alpinejs'
 window.Alpine = Alpine
-import { resetCanvas, sampleTexture } from './draw.js'
+import { resetCanvas, sampleTexture, togglePlaneMesh } from './draw.js'
 
 
 document.addEventListener('alpine:init', () => {
@@ -9,6 +9,12 @@ document.addEventListener('alpine:init', () => {
         open: false,
         uploaded: false,
 
+        imageVisible: true,
+
+        toggleImage() {
+            this.imageVisible = !this.imageVisible
+            togglePlaneMesh(this.imageVisible)
+        },
 
         toggle() {
             this.open = !this.open

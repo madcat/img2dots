@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import Stats from 'stats.js'
-let renderer, scene, camera, texture
+let renderer, scene, camera, texture, planeMesh
 let aspectRatio = 1
 let dots = {
     group: null,
@@ -38,6 +38,7 @@ function resetCanvas(canvas, image) {
     const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
     const mesh = new THREE.Mesh(geometry, material);
     scene.add(mesh);
+    planeMesh = mesh;
     mesh.translateZ(-1)
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -69,7 +70,7 @@ function addDots(aspectRatio, dotCount = dots.count) {
     // plane dimension is 2 * aspectRatio x 2
     // by DOT_COUNT, calculate rows and cols of dots
     const dotSpacing = 0.01; // Set the spacing between the dots
-    const dotSize = 0.01
+    const dotSize = 0.005;
     let dotRows = Math.ceil(Math.sqrt(DOT_COUNT / (1 + dotSpacing) / aspectRatio))
     let dotCols = Math.ceil(dotRows * aspectRatio)
 
@@ -139,14 +140,14 @@ function sampleTexture() {
 
         let px = col * 1.0 / dots.cols;
         let py = row * 1.0 / dots.rows;
-        //px = (mesh.position.x + planeWidth / 2) * 1.0 / planeWidth;
-        //py = (mesh.position.y + planeHeight / 2) * 1.0 / planeHeight;
+        px = (mesh.position.x + planeWidth / 2) * 1.0 / planeWidth;
+        py = (mesh.position.y + planeHeight / 2) * 1.0 / planeHeight;
 
-        if (px > 1 || py > 1) {
+        if (px >= 1 || py >= 1) {
             mesh.visible = false;
             continue;
         } else {
-            console.log(px, py)
+            // console.log(px, py)
         }
 
 
@@ -176,4 +177,8 @@ function render() {
     requestAnimationFrame(render)
 }
 
-export { resetCanvas, sampleTexture }
+function togglePlaneMesh(visible) {
+    planeMesh.visible = visible
+}
+
+export { resetCanvas, sampleTexture, togglePlaneMesh }

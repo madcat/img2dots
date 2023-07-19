@@ -20,7 +20,9 @@
 
                 </div>
                 <div id="controls-container__buttons">
-                    <button class="block button" x-on:click="sampleImage" :disabled="!uploaded">Sample</button>
+                    <button class="block btn btn-blue" x-on:click="sampleImage" :disabled="!uploaded">Sample</button>
+                    <button class="block btn btn-blue" x-on:click="toggleImage" :disabled="!uploaded">Toggle
+                        Image</button>
                 </div>
             </div>
         </div>
