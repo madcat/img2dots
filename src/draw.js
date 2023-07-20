@@ -37,13 +37,14 @@ function loadSVG(url = '/borders.svg') {
             const paths = data.paths;
             console.log('svg paths:', paths.length)
             const group = new THREE.Group();
+            const groupLines = new THREE.Group();
 
             for (let i = 0; i < paths.length; i++) {
 
                 const path = paths[i];
 
                 const material = new THREE.MeshBasicMaterial({
-                    color: 0xaaaaaa, //path.color,
+                    color: 0xcdcdcd, //path.color,
                     side: THREE.DoubleSide,
                     depthWrite: true,
                     // wireframe: true
@@ -57,13 +58,11 @@ function loadSVG(url = '/borders.svg') {
                     const geometry = new THREE.ShapeGeometry(shape);
                     const mesh = new THREE.Mesh(geometry, material);
 
-                    //const mat = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 4 })
-                    //const line = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), mat)
+                    const mat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 4 })
+                    const line = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), mat)
 
-                    mesh.position.z = -3;
-                    // line.position.z = -1;
                     group.add(mesh);
-                    // group.add(line);
+                    groupLines.add(line);
 
                 }
 
@@ -90,7 +89,13 @@ function loadSVG(url = '/borders.svg') {
             group.scale.set(scale, -scale, scale)
             group.translateX(-aspectRatio)
             group.translateY(1)
+            group.translateZ(-4)
+            groupLines.scale.set(scale, -scale, scale)
+            groupLines.translateX(-aspectRatio)
+            groupLines.translateY(1)
+            groupLines.translateZ(-1)
             scene.add(group);
+            scene.add(groupLines);
 
         },
         // called when loading is in progresses
