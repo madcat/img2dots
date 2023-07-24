@@ -10,6 +10,17 @@
 
 <body>
     <div id="app" x-data="appState">
+        <div class="full-w bg-slate-50 p-2">
+            <ul class="flex">
+                <li><label><input type="file" accept="image/*" x-on:change="selectImage" class="text-sm text-grey-500
+                    file:mr-5 file:py-3 file:px-10
+                    file:rounded-full file:border-0
+                    file:text-md file:font-semibold  file:text-white
+                    file:bg-gradient-to-r file:from-blue-600 file:to-amber-600
+                    hover:file:cursor-pointer hover:file:opacity-80
+                    "></input></label></li>
+            </ul>
+        </div>
         <div id="canvas-container">
             <canvas id="canvas" x-ref="canvas"></canvas>
         </div>

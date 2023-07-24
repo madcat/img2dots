@@ -3,6 +3,8 @@ import Stats from 'stats.js'
 
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
 
+import { GUI } from 'dat.gui';
+
 let renderer, scene, camera, texture, planeMesh
 let aspectRatio = 1
 let dots = {
@@ -10,8 +12,27 @@ let dots = {
     count: 50000,
     cols: 0,
     rows: 0,
-    meshes: []
+    meshes: [],
+    size: 0.0075,
+    spacing: 0.01,
+    segments: 16,
+    color: 0x000000,
+    bgColor: 0xffffff,
+    material: null,
 }
+
+function initGUI() {
+    const gui = new GUI()
+    const dotsFolder = gui.addFolder('Config')
+    dotsFolder.add(dots, 'size', 0.005, 0.015)
+    dotsFolder.add(dots, 'spacing', 0, 0.03)
+    dotsFolder.add(dots, 'segments', 3, 32).step(1)
+    dotsFolder.addColor(dots, 'color').onChange(function () { dots.material.color.set(dots.color); });
+    dotsFolder.addColor(dots, 'bgColor').onChange(function () { scene.background.set(dots.bgColor); });
+
+    dotsFolder.open()
+}
+
 
 var stats = new Stats();
 stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
@@ -114,7 +135,7 @@ function loadSVG(url = '/borders.svg') {
 }
 
 function resetCanvas(canvas, image) {
-    renderer = new THREE.WebGLRenderer({ canvas, premultipliedAlpha: false });
+    renderer = new THREE.WebGLRenderer({ canvas, premultipliedAlpha: false, antialias: true });
     scene = new THREE.Scene();
     camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1000);
 
@@ -156,7 +177,7 @@ function resetCanvas(canvas, image) {
 
     renderer.clearColor = new THREE.Color(0xffffff)
     renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-    renderer.setPixelRatio(2.0);
+    renderer.setPixelRatio(4.0);
 
     render()
 }
@@ -174,8 +195,9 @@ function addDots(aspectRatio, dotCount = dots.count) {
 
     let dotPositions = []
 
-    const geometry = new THREE.CircleGeometry(dotSize, 8);
-    const material = new THREE.MeshBasicMaterial({ color: 0x000000 });
+    const geometry = new THREE.CircleGeometry(dotSize, 16);
+    dots.material = new THREE.MeshBasicMaterial({ color: dots.color });
+    let material = dots.material;
 
     let group = new THREE.Group();
     for (let i = 0; i < dotCount; i++) {
@@ -276,4 +298,4 @@ function togglePlaneMesh(visible) {
     planeMesh.visible = visible
 }
 
-export { resetCanvas, sampleTexture, togglePlaneMesh, loadSVG }
+export { resetCanvas, sampleTexture, togglePlaneMesh, loadSVG, initGUI }

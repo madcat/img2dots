@@ -1,7 +1,7 @@
 
 import Alpine from 'alpinejs'
 window.Alpine = Alpine
-import { resetCanvas, sampleTexture, togglePlaneMesh, loadSVG } from './draw.js'
+import { resetCanvas, sampleTexture, togglePlaneMesh, loadSVG, initGUI } from './draw.js'
 
 
 document.addEventListener('alpine:init', () => {
@@ -17,6 +17,10 @@ document.addEventListener('alpine:init', () => {
 
         loadBorders() {
             loadSVG()
+        },
+
+        selectImage(e) {
+
         },
 
         uploadImage(e) {
@@ -45,6 +49,8 @@ document.addEventListener('alpine:init', () => {
             // img.src = e.target.result
             img.onload = () => {
                 resetCanvas(this.$refs.canvas, img)
+
+                initGUI()
 
                 this.uploaded = true
 
