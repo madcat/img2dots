@@ -20,9 +20,11 @@ let dots = {
     bgColor: 0xffffff,
     material: null,
 }
+let gui = null
 
 function initGUI() {
-    const gui = new GUI({ autoPlace: false })
+    if (gui) return
+    gui = new GUI({ autoPlace: false })
     gui.domElement.id = 'dat-gui'
     const dotsFolder = gui.addFolder('Config')
     dotsFolder.add(dots, 'size', 0.005, 0.015).onChange(resetDots)
@@ -145,7 +147,8 @@ function resetCanvas(canvas, image, pixelRatio = 2.0) {
 
     canvas.width = image.width;
     canvas.height = image.height;
-    canvas.style.width = "100%";
+    canvas.style.maxWidth = "100%";
+    canvas.style.height = "auto";
 
     aspectRatio = canvas.clientWidth / canvas.clientHeight;
 

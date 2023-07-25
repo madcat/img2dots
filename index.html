@@ -27,6 +27,7 @@
             <canvas id="canvas" x-ref="canvas"></canvas>
         </div>
         <div class="fixed bottom-0 p-2 h-16 border-t bg-slate-50 w-full">
+            <p x-show="!uploaded" class="w-full text-center">only black and white JPG images are supported right now</p>
             <p x-show="uploaded" class="w-full text-center">right click generated image to download</p>
             <p x-show="uploaded" class="w-full text-center font-mono text-sm text-gray-500"
                 x-text="size.width + 'x' + size.height + ' @ ' + pixelRatio + 'X'"></p>
