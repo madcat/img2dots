@@ -1,26 +1,25 @@
 
 import Alpine from 'alpinejs'
 window.Alpine = Alpine
-import { resetCanvas, sampleTexture, togglePlaneMesh, loadSVG, initGUI } from './draw.js'
+import { resetCanvas, loadSVG, initGUI } from './draw.js'
 
 
 document.addEventListener('alpine:init', () => {
     Alpine.data('appState', () => ({
         uploaded: false,
-
-        imageVisible: true,
-
-        toggleImage() {
-            this.imageVisible = !this.imageVisible
-            togglePlaneMesh(this.imageVisible)
-        },
+        size: { width: 0, height: 0 },
+        pixelRatio: 2.0,
 
         loadBorders() {
             loadSVG()
         },
 
         selectImage(e) {
+            this.uploaded = false
+            let files = e.target.files
+            if (files.length === 0) return
 
+            this.getImageData(files[0])
         },
 
         uploadImage(e) {
@@ -29,10 +28,6 @@ document.addEventListener('alpine:init', () => {
             if (files.length === 0) return
 
             this.getImageData(files[0])
-        },
-
-        sampleImage() {
-            sampleTexture()
         },
 
         // draw uploaded image file on temporary canvas then get image data
@@ -48,7 +43,9 @@ document.addEventListener('alpine:init', () => {
             // reader.onload = (e) => {
             // img.src = e.target.result
             img.onload = () => {
-                resetCanvas(this.$refs.canvas, img)
+                this.size.width = img.width
+                this.size.height = img.height
+                resetCanvas(this.$refs.canvas, img, this.pixelRatio)
 
                 initGUI()
 

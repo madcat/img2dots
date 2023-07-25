@@ -22,15 +22,18 @@ let dots = {
 }
 
 function initGUI() {
-    const gui = new GUI()
+    const gui = new GUI({ autoPlace: false })
+    gui.domElement.id = 'dat-gui'
     const dotsFolder = gui.addFolder('Config')
-    dotsFolder.add(dots, 'size', 0.005, 0.015)
-    dotsFolder.add(dots, 'spacing', 0, 0.03)
-    dotsFolder.add(dots, 'segments', 3, 32).step(1)
+    dotsFolder.add(dots, 'size', 0.005, 0.015).onChange(resetDots)
+    dotsFolder.add(dots, 'spacing', 0, 0.03).onChange(resetDots)
+    dotsFolder.add(dots, 'segments', 3, 32).step(1).onChange(resetDots)
     dotsFolder.addColor(dots, 'color').onChange(function () { dots.material.color.set(dots.color); });
     dotsFolder.addColor(dots, 'bgColor').onChange(function () { scene.background.set(dots.bgColor); });
 
     dotsFolder.open()
+
+    document.getElementById('dat-gui-container').appendChild(gui.domElement)
 }
 
 
@@ -42,7 +45,6 @@ stats.dom.style.right = 0;
 stats.dom.style.left = 'auto';
 stats.dom.style.top = 'auto';
 
-const DOT_COUNT = 50000;
 
 function loadSVG(url = '/borders.svg') {
     // instantiate a loader
@@ -134,15 +136,16 @@ function loadSVG(url = '/borders.svg') {
     );
 }
 
-function resetCanvas(canvas, image) {
+function resetCanvas(canvas, image, pixelRatio = 2.0) {
     renderer = new THREE.WebGLRenderer({ canvas, premultipliedAlpha: false, antialias: true });
     scene = new THREE.Scene();
     camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1000);
 
     scene.background = new THREE.Color(0xffffff);
 
-    canvas.width = image.width / 2;
-    canvas.height = image.height / 2;
+    canvas.width = image.width;
+    canvas.height = image.height;
+    canvas.style.width = "100%";
 
     aspectRatio = canvas.clientWidth / canvas.clientHeight;
 
@@ -173,13 +176,66 @@ function resetCanvas(canvas, image) {
     camera.lookAt(meshPosition); // Set the point that the camera is looking at
     console.log(camera.position, meshPosition)
 
-    let dotPositions = addDots(aspectRatio)
+    // let dotPositions = addDots(aspectRatio)
+    let dotPositions = resetDots()
 
     renderer.clearColor = new THREE.Color(0xffffff)
     renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-    renderer.setPixelRatio(4.0);
+    renderer.setPixelRatio(pixelRatio);
 
     render()
+
+    // sampleTexture()
+}
+
+function resetDots() {
+
+    if (dots.group) {
+        // dispose existing dots geometry
+        dots.meshes.forEach(m => m.geometry.dispose())
+        // remove dot meshes from group
+        dots.meshes.forEach(m => dots.group.remove(m))
+        dots.meshes = []
+        dots.group.visible = false;
+        scene.remove(dots.group)
+
+        dots.group = null
+    }
+    dots.group = new THREE.Group();
+
+    dots.cols = Math.ceil(2 * aspectRatio / (dots.size * 2 + dots.spacing))
+    dots.rows = Math.ceil(2 / (dots.size * 2 + dots.spacing))
+
+    const geometry = new THREE.CircleGeometry(dots.size, dots.segments);
+
+    if (!dots.material) {
+        dots.material = new THREE.MeshBasicMaterial({ color: dots.color });
+    }
+
+
+    let dotPositions = []
+    for (let i = 0; i < dots.cols * dots.rows; i++) {
+        const row = Math.floor(i / dots.cols);
+        const col = i % dots.cols;
+
+        const x = col * dots.size * 2 + col * dots.spacing - aspectRatio;
+        const y = row * dots.size * 2 + row * dots.spacing - 1;
+
+        const mesh = new THREE.Mesh(geometry, dots.material);
+        dotPositions.push({ x, y })
+        mesh.position.set(x, y, -2);
+        dots.meshes.push(mesh);
+        // mesh.lookAt(camera.position)
+        dots.group.add(mesh);
+
+    }
+
+    scene.add(dots.group);
+    dots.group.visible = true;
+
+    sampleTexture()
+
+    return dotPositions
 }
 
 function addDots(aspectRatio, dotCount = dots.count) {
@@ -222,10 +278,9 @@ function addDots(aspectRatio, dotCount = dots.count) {
     return dotPositions
 }
 
-// sample texture by the dot positions, return same size array of booleans indicate if the dot position on the texture has color other than white
-
 function sampleTexture() {
     dots.group.visible = false;
+    planeMesh.visible = true;
     const renderTarget = new THREE.WebGLRenderTarget(texture.image.width, texture.image.height);
     renderer.setRenderTarget(renderTarget);
     renderer.render(scene, camera);
@@ -236,16 +291,8 @@ function sampleTexture() {
 
     dots.group.visible = true;
 
-    console.log(pixelData.length / 4, pixelData.filter(p => p == 0).length / 4)
-
-
-    // let i = 0
-    // console.log(pixelData[i], pixelData[i + 1], pixelData[i + 2], pixelData[i + 3])
-    // return
-
-
     let blackCount = 0
-    for (let i = 0; i < dots.count; i++) {
+    for (let i = 0; i < dots.cols * dots.rows; i++) {
 
         const row = Math.floor(i * 1.0 / dots.cols);
         const col = i % dots.cols;
@@ -267,7 +314,6 @@ function sampleTexture() {
             // console.log(px, py)
         }
 
-
         const x = Math.floor(texture.image.width * px)
         const y = Math.floor(texture.image.height * py)
 
@@ -284,7 +330,9 @@ function sampleTexture() {
             blackCount++
         }
     }
-    console.log(blackCount, dots.count)
+
+    planeMesh.visible = false
+    // console.log(blackCount, dots.count)
 }
 
 function render() {
@@ -294,8 +342,4 @@ function render() {
     requestAnimationFrame(render)
 }
 
-function togglePlaneMesh(visible) {
-    planeMesh.visible = visible
-}
-
-export { resetCanvas, sampleTexture, togglePlaneMesh, loadSVG, initGUI }
+export { resetCanvas, loadSVG, initGUI }

@@ -10,7 +10,7 @@
 
 <body>
     <div id="app" x-data="appState">
-        <div class="full-w bg-slate-50 p-2">
+        <div class="full-w bg-slate-50 p-2 border-b flex items-center">
             <ul class="flex">
                 <li><label><input type="file" accept="image/*" x-on:change="selectImage" class="text-sm text-grey-500
                     file:mr-5 file:py-3 file:px-10
@@ -20,24 +20,18 @@
                     hover:file:cursor-pointer hover:file:opacity-80
                     "></input></label></li>
             </ul>
+            <h1 class="text-lg font-bold flex-1 block text-center">Convert image to dotted pattern</h1>
+            <div class="flex-1"></div>
         </div>
         <div id="canvas-container">
             <canvas id="canvas" x-ref="canvas"></canvas>
         </div>
-        <div id="controls">
-            <div id="controls-container">
-                <div id="controls-container__input">
-                    <input type="file" id="file-input" accept="image/*" x-on:change="uploadImage">
-
-                </div>
-                <div id="controls-container__buttons">
-                    <button class="block btn btn-blue" x-on:click="sampleImage" :disabled="!uploaded">Sample</button>
-                    <button class="block btn btn-blue" x-on:click="toggleImage" :disabled="!uploaded">Toggle
-                        <button class="block btn btn-blue" x-on:click="loadBorders" :disabled="!uploaded">Load
-                            Borders</button>
-                </div>
-            </div>
+        <div class="fixed bottom-0 p-2 h-16 border-t bg-slate-50 w-full">
+            <p x-show="uploaded" class="w-full text-center">right click generated image to download</p>
+            <p x-show="uploaded" class="w-full text-center font-mono text-sm text-gray-500"
+                x-text="size.width + 'x' + size.height + ' @ ' + pixelRatio + 'X'"></p>
         </div>
+        <div id="dat-gui-container"></div>
         <script type="module" src="src/main.js"></script>
 </body>
 
