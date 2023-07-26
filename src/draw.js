@@ -19,6 +19,11 @@ let dots = {
     color: 0x000000,
     bgColor: 0xffffff,
     material: null,
+    points: null,
+    alphaAttrs: null,
+    uniforms: {
+        color: { value: new THREE.Color(0x00ff00) },
+    }
 }
 let gui = null
 
@@ -157,6 +162,7 @@ function resetCanvas(canvas, image, pixelRatio = 2.0) {
     texture.needsUpdate = true;
 
     const geometry = new THREE.PlaneGeometry(2 * aspectRatio, 2);
+    geometry.computeBoundingBox();
     const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
     const mesh = new THREE.Mesh(geometry, material);
     scene.add(mesh);
@@ -180,7 +186,9 @@ function resetCanvas(canvas, image, pixelRatio = 2.0) {
     console.log(camera.position, meshPosition)
 
     // let dotPositions = addDots(aspectRatio)
-    let dotPositions = resetDots()
+    // let dotPositions = resetDots()
+
+    resetPoints()
 
     renderer.clearColor = new THREE.Color(0xffffff)
     renderer.setSize(canvas.clientWidth, canvas.clientHeight);
@@ -237,46 +245,6 @@ function resetDots() {
     dots.group.visible = true;
 
     sampleTexture()
-
-    return dotPositions
-}
-
-function addDots(aspectRatio, dotCount = dots.count) {
-    // plane dimension is 2 * aspectRatio x 2
-    // by DOT_COUNT, calculate rows and cols of dots
-    const dotSpacing = 0.01; // Set the spacing between the dots
-    const dotSize = 0.0075;
-    let dotRows = Math.ceil(Math.sqrt(DOT_COUNT / (1 + dotSpacing) / aspectRatio))
-    let dotCols = Math.ceil(dotRows * aspectRatio)
-
-    dots.rows = dotRows
-    dots.cols = dotCols
-
-    let dotPositions = []
-
-    const geometry = new THREE.CircleGeometry(dotSize, 16);
-    dots.material = new THREE.MeshBasicMaterial({ color: dots.color });
-    let material = dots.material;
-
-    let group = new THREE.Group();
-    for (let i = 0; i < dotCount; i++) {
-        const row = Math.floor(i / dotCols);
-        const col = i % dotCols;
-
-        const x = col * dotSize + col * dotSpacing - aspectRatio;
-        const y = row * dotSize + row * dotSpacing - 1;
-
-        const mesh = new THREE.Mesh(geometry, material);
-        dotPositions.push({ x, y })
-        mesh.position.set(x, y, -2);
-        dots.meshes.push(mesh);
-        // mesh.lookAt(camera.position)
-        group.add(mesh);
-
-    }
-
-    scene.add(group);
-    dots.group = group;
 
     return dotPositions
 }
@@ -338,8 +306,153 @@ function sampleTexture() {
     // console.log(blackCount, dots.count)
 }
 
+function samplePoint(pixelData, planeWidth, planeHeight, textureWidth, textureHeight, x, y) {
+
+    let px = (x + planeWidth / 2) * 1.0 / planeWidth;
+    let py = (y + planeHeight / 2) * 1.0 / planeHeight;
+
+    if (px >= 1 || py >= 1) {
+        return false
+    }
+
+    const sx = Math.floor(textureWidth * px)
+    const sy = Math.floor(textureHeight * py)
+
+    const j = sy * textureWidth + sx;
+    const r = pixelData[j * 4 + 0];
+    const g = pixelData[j * 4 + 1];
+    const b = pixelData[j * 4 + 2];
+    const a = pixelData[j * 4 + 3];
+
+    if (r > 0.1 || g > 0.1 || b > 0.1) {
+        return false
+    }
+
+    return true
+}
+
+function generatePointsGeometry() {
+
+    dots.cols = Math.ceil(2 * aspectRatio / (dots.size * 2 + dots.spacing))
+    dots.rows = Math.ceil(2 / (dots.size * 2 + dots.spacing))
+
+    const geometry = new THREE.BufferGeometry()
+    const numPoints = dots.cols * dots.rows
+
+    const positions = new Float32Array(numPoints * 3)
+    const colors = new Float32Array(numPoints * 3)
+    dots.alphaAttrs = new Float32Array(numPoints * 1)
+
+    for (let i = 0; i < numPoints; i++) {
+        dots.alphaAttrs[i] = Math.random()
+    }
+
+    let color = new THREE.Color(dots.color)
+
+    // get size of planMesh
+    let size = planeMesh.geometry.boundingBox.getSize(new THREE.Vector3())
+    console.log(size)
+
+    // sample texture
+    planeMesh.visible = true;
+    const renderTarget = new THREE.WebGLRenderTarget(texture.image.width, texture.image.height);
+    renderer.setRenderTarget(renderTarget);
+    renderer.render(scene, camera);
+    renderer.setRenderTarget(null);
+
+    const pixelData = new Uint8Array(texture.image.width * texture.image.height * 4);
+    renderer.readRenderTargetPixels(renderTarget, 0, 0, texture.image.width, texture.image.height, pixelData);
+
+    let k = 0;
+    for (let i = 0; i < dots.cols; i++) {
+        for (let j = 0; j < dots.rows; j++) {
+            const u = i / dots.cols;
+            const v = j / dots.rows;
+            const x = i * dots.size * 2 + i * dots.spacing - aspectRatio;
+            const y = j * dots.size * 2 + j * dots.spacing - 1;
+            const z = -2;
+
+            let on = samplePoint(pixelData, size.x, size.y, texture.image.width, texture.image.height, x, y)
+            if (!on) continue
+
+            positions[3 * k + 0] = x
+            positions[3 * k + 1] = y
+            positions[3 * k + 2] = z
+
+            colors[3 * k + 0] = color.r
+            colors[3 * k + 1] = color.g
+            colors[3 * k + 2] = color.b
+
+            k++
+        }
+    }
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+    geometry.setAttribute('alpha', new THREE.BufferAttribute(dots.alphaAttrs, 1))
+    geometry.computeBoundingBox()
+
+    // planeMesh.visible = false
+    planeMesh.material.opacity = 0.65
+
+    return geometry
+}
+
+function resetPoints() {
+    // remove old
+
+    const geometry = generatePointsGeometry()
+    const material = new THREE.PointsMaterial({ size: 2.0, vertexColors: true })
+
+
+    var shaderMaterial = new THREE.ShaderMaterial({
+
+        uniforms: dots.uniforms,
+        vertexShader: `
+            attribute float alpha;
+            varying float vAlpha;
+
+            void main() {
+                vAlpha = alpha;
+                vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+                gl_PointSize = 4.0;
+                gl_Position = projectionMatrix * mvPosition;
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 color;
+            varying float vAlpha;
+
+            void main() {
+
+                gl_FragColor = vec4( color, vAlpha );
+
+            }
+        `,
+        transparent: true
+
+    });
+
+    dots.points = new THREE.Points(geometry, shaderMaterial)
+    scene.add(dots.points)
+}
+
 function render() {
     stats.begin();
+
+    let alphaAttrs = dots.points.geometry.attributes.alpha;
+    var count = alphaAttrs.count;
+
+    for (var i = 0; i < count; i++) {
+        alphaAttrs.array[i] *= 0.95
+        if (alphaAttrs.array[i] < 0.01) alphaAttrs.array[i] = 1.0
+
+        // if (alphaAttrs.array[i] > 0.99) alphaAttrs.array[i] *= 0.95
+    }
+
+    alphaAttrs.needsUpdate = true;
+
+
     renderer.render(scene, camera)
     stats.end();
     requestAnimationFrame(render)
