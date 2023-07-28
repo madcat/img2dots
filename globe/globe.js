@@ -10,7 +10,7 @@ let camera, scene, renderer, stats, controls, gui, sphereGeometry, sphere, point
 let config = {
 
     radius: 5,
-    numPoints: 30000,
+    numPoints: 20000,
     bwTexture: '/borders.png'
 }
 
@@ -36,12 +36,12 @@ function initGUI() {
 
 function init() {
     scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
     renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas') });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(2.0)
 
-    sphereGeometry = new THREE.SphereGeometry(config.radius, 64, 64);
+    sphereGeometry = new THREE.SphereGeometry(config.radius + 0.01, 64, 64);
     sphereGeometry.computeBoundingBox()
     const textureLoader = new THREE.TextureLoader();
 
@@ -69,27 +69,36 @@ function init() {
     
                 void main() {
                     vec4 color = texture2D(alphaTexture, vUv);
-                    gl_FragColor = vec4(0.5,0.5,0.5,color.r); // Use the red channel as the alpha value
+                    gl_FragColor = vec4(0.3,0.5,0.9, color.r * 1.0 ); // Use the red channel as the alpha value
                 }
             `,
             transparent: true, // Enable transparency
             side: THREE.DoubleSide,
-            renderForceSinglePass: false,
             // cullFace: THREE.CullFaceNone,
             // blending: THREE.AdditiveBlending
 
             // alphaTest: 1
-            // depthTest: false
+            depthWrite: false
         });
 
-        let basicMaterial = new THREE.MeshBasicMaterial({ map: texture, opacity: 0.5, transparent: true, side: THREE.DoubleSide });
+        let basicMaterial = new THREE.MeshBasicMaterial({ map: texture, opacity: 0.3, transparent: true, side: THREE.DoubleSide, depthTest: false });
 
-        sphere = new THREE.Mesh(sphereGeometry, basicMaterial);
-        // sphere = new THREE.Mesh(sphereGeometry, material);
+        // sphere = new THREE.Mesh(sphereGeometry, basicMaterial);
+        sphere = new THREE.Mesh(sphereGeometry, material);
         sphere.renderForceSinglePass = false
         // sphere.flipSided = false
         // sphere.DoubleSided = true
         // sphere.renderOrder = 1;
+
+        let innerSphereGeometry = new THREE.SphereGeometry(config.radius - 0.1, 32, 32);
+        let innerSphereMaterial = new THREE.MeshBasicMaterial({ color: 0x000011, transparent: true });
+        innerSphereMaterial.opacity = 0.8;
+        let innerSphere = new THREE.Mesh(innerSphereGeometry, innerSphereMaterial);
+
+        innerSphere.renderOrder = 1;
+        sphere.renderOrder = 2;
+
+        scene.add(innerSphere);
         scene.add(sphere);
 
 
@@ -106,9 +115,11 @@ function init() {
     camera.lookAt(0, 0, 0);
 
     scene.background = new THREE.Color(0x000000);
+    // scene.fog = new THREE.Fog(0x0000cc, 5, 20);
 
     controls = new OrbitControls(camera, renderer.domElement, sphere);
     controls.minDistance = 10;
+    controls.enableDamping = true;
     controls.update();
 }
 
@@ -137,7 +148,7 @@ function sampleAndAddPoints(texture) {
     const canvas = document.createElement('canvas');
     canvas.width = img.width;
     canvas.height = img.height;
-    const context = canvas.getContext('2d');
+    const context = canvas.getContext('2d', { willReadFrequently: true });
     context.drawImage(img, 0, 0, img.width, img.height);
 
     // Function to sample texture color based on UV position
@@ -187,7 +198,7 @@ function sampleAndAddPoints(texture) {
     let alphas = new Float32Array(remainingPoints.length * 1)
     const colors = new Float32Array(remainingPoints.length * 3)
     for (let i = 0; i < remainingPoints.length; i++) {
-        alphas[i] = Math.random()
+        alphas[i] = 0.5 + 0.5 * Math.random()
         colors[i * 3 + 0] = 0.0
         colors[i * 3 + 1] = 1.0
         colors[i * 3 + 2] = 0.0
@@ -226,17 +237,18 @@ function sampleAndAddPoints(texture) {
             varying float vAlpha;
 
             void main() {
-
                 gl_FragColor = vec4( color, vAlpha );
-
             }
         `,
         transparent: true,
         side: THREE.DoubleSide,
+        // depthTest: false,
 
     });
     //const pointCloud = new THREE.Points(pointGeometry, pointMaterial);
     const pointCloud = new THREE.Points(pointGeometry, shaderMaterial);
+    pointCloud.renderForceSinglePass = false
+    pointCloud.renderOrder = 3
     scene.add(pointCloud);
 }
 
@@ -245,6 +257,8 @@ let time = 0;
 
 function render() {
     requestAnimationFrame(render);
+
+    stats.begin();
     //sphere.rotation.x += 0.01;
     //sphere.rotation.y += 0.01;
 
@@ -258,13 +272,15 @@ function render() {
     //     }
 
     //     alphaAttrs.needsUpdate = true;
-    // }
+    // // }
     if (pointGeometry && initialAlphas) {
         time += clock.getDelta();
 
         let currentAlphas = pointGeometry.attributes.alpha.array;
         for (let i = 0; i < currentAlphas.length; i++) {
-            currentAlphas[i] = initialAlphas[i] * (0.5 + 0.5 * Math.sin(time * 2.0 + i * 0.1));
+            //currentAlphas[i] = initialAlphas[i] * (0.8 + 0.2 * Math.sin(time * 2.0 + i * 0.1));
+            currentAlphas[i] = initialAlphas[i] + (1.0 - initialAlphas[i]) * Math.sin(time * 2.0 + i * 0.1);
+
         }
         pointGeometry.attributes.alpha.needsUpdate = true;
     }
@@ -272,8 +288,9 @@ function render() {
 
     controls.update();
     renderer.render(scene, camera);
+    stats.end();
 }
 
-
+initStats()
 init()
 render()

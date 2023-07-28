@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "npx vite",
-    "build": "npx vite build --base=/img2dots/ && cp dist/index.html ../lingfei.dev/src/pages/img2dots/ && cp -r dist/assets ../lingfei.dev/public/img2dots/",
+    "dev": "npx vite --host",
+    "build": "npx vite build --base=/img2dots/ && cp -r dist/* ../lingfei.dev/public/img2dots/",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",

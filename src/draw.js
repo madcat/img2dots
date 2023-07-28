@@ -186,9 +186,9 @@ function resetCanvas(canvas, image, pixelRatio = 2.0) {
     console.log(camera.position, meshPosition)
 
     // let dotPositions = addDots(aspectRatio)
-    // let dotPositions = resetDots()
+    let dotPositions = resetDots()
 
-    resetPoints()
+    // resetPoints()
 
     renderer.clearColor = new THREE.Color(0xffffff)
     renderer.setSize(canvas.clientWidth, canvas.clientHeight);
@@ -440,17 +440,17 @@ function resetPoints() {
 function render() {
     stats.begin();
 
-    let alphaAttrs = dots.points.geometry.attributes.alpha;
-    var count = alphaAttrs.count;
+    // let alphaAttrs = dots.points.geometry.attributes.alpha;
+    // var count = alphaAttrs.count;
 
-    for (var i = 0; i < count; i++) {
-        alphaAttrs.array[i] *= 0.95
-        if (alphaAttrs.array[i] < 0.01) alphaAttrs.array[i] = 1.0
+    // for (var i = 0; i < count; i++) {
+    //     alphaAttrs.array[i] *= 0.95
+    //     if (alphaAttrs.array[i] < 0.01) alphaAttrs.array[i] = 1.0
 
-        // if (alphaAttrs.array[i] > 0.99) alphaAttrs.array[i] *= 0.95
-    }
+    //     // if (alphaAttrs.array[i] > 0.99) alphaAttrs.array[i] *= 0.95
+    // }
 
-    alphaAttrs.needsUpdate = true;
+    // alphaAttrs.needsUpdate = true;
 
 
     renderer.render(scene, camera)
