@@ -5,13 +5,16 @@ import { GUI } from 'dat.gui'
 
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 
-let camera, scene, renderer, stats, controls, gui, sphereGeometry, sphere, pointGeometry, initialAlphas;
+let camera, scene, renderer, stats, controls, gui, sphereGeometry, backSphereGeometry, sphere, backSphere, pointGeometry, initialAlphas;
 
 let config = {
 
     radius: 5,
     numPoints: 20000,
-    bwTexture: '/borders.png'
+    outlineTexture: '/img2dots/earth.png',
+    bwTexture: '/img2dots/borders.png',
+    beamTexture: '/img2dots/beam.jpg',
+    dotTexture: '/img2dots/dot.png'
 }
 
 function initStats() {
@@ -45,8 +48,8 @@ function init() {
     sphereGeometry.computeBoundingBox()
     const textureLoader = new THREE.TextureLoader();
 
-    let material
-    textureLoader.load('/earth.png', function (texture) {
+    let material = null
+    textureLoader.load(config.outlineTexture, function (texture) {
         texture.needsUpdate = true;
         texture.anisotropy = 16
 
@@ -73,12 +76,13 @@ function init() {
                 }
             `,
             transparent: true, // Enable transparency
-            side: THREE.DoubleSide,
+            side: THREE.FrontSide,
+            // side: THREE.DoubleSide
             // cullFace: THREE.CullFaceNone,
             // blending: THREE.AdditiveBlending
 
             // alphaTest: 1
-            depthWrite: false
+            //depthWrite: false
         });
 
         let basicMaterial = new THREE.MeshBasicMaterial({ map: texture, opacity: 0.3, transparent: true, side: THREE.DoubleSide, depthTest: false });
@@ -98,7 +102,7 @@ function init() {
         innerSphere.renderOrder = 1;
         sphere.renderOrder = 2;
 
-        scene.add(innerSphere);
+        //scene.add(innerSphere);
         scene.add(sphere);
 
 
@@ -106,6 +110,55 @@ function init() {
             sampleAndAddPoints(texture)
         });
 
+    });
+
+    backSphereGeometry = new THREE.SphereGeometry(config.radius + 0.01, 64, 64);
+    backSphereGeometry.computeBoundingBox()
+    const textureLoader1 = new THREE.TextureLoader();
+
+    let material1 = null
+    textureLoader1.load(config.outlineTexture, function (texture) {
+        texture.needsUpdate = true;
+        texture.anisotropy = 16
+
+        material1 = new THREE.ShaderMaterial({
+            uniforms: {
+                alphaTexture: { value: texture },
+            },
+            vertexShader: `
+                varying vec2 vUv;
+    
+                void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                precision highp float;
+                uniform sampler2D alphaTexture;
+                varying vec2 vUv;
+    
+                void main() {
+                    vec4 color = texture2D(alphaTexture, vUv);
+                    gl_FragColor = vec4(0.3,0.5,0.9, color.r * 0.5 ); // Use the red channel as the alpha value
+                }
+            `,
+            transparent: true, // Enable transparency
+            side: THREE.BackSide,
+            // cullFace: THREE.CullFaceNone,
+            // blending: THREE.AdditiveBlending
+
+            // alphaTest: 1
+            //depthWrite: false
+        });
+
+        // sphere = new THREE.Mesh(sphereGeometry, basicMaterial);
+        backSphere = new THREE.Mesh(backSphereGeometry, material1);
+        backSphere.renderForceSinglePass = false
+        // sphere.flipSided = false
+        // sphere.DoubleSided = true
+        // sphere.renderOrder = 1;
+        scene.add(backSphere);
     });
 
 
@@ -250,6 +303,91 @@ function sampleAndAddPoints(texture) {
     pointCloud.renderForceSinglePass = false
     pointCloud.renderOrder = 3
     scene.add(pointCloud);
+
+    let loc = addLocation(0, 0, config.radius + 0.01);
+    loc.renderOrder = 3
+    scene.add(loc);
+}
+
+function addLocation(theta, phi, radius) {
+    // const radius = 10; // Radius of the sphere
+    // const theta = Math.PI / 4; // Theta angle in radians
+    // const phi = Math.PI / 6; // Phi angle in radians
+    const scale = 0.2; // Scale factor for the square
+
+    // Calculate the 3D position of the square's origin on the sphere
+    const x = radius * Math.sin(phi) * Math.cos(theta);
+    const y = radius * Math.cos(phi);
+    const z = radius * Math.sin(phi) * Math.sin(theta);
+
+    // Create the square geometry with sides of length 1
+    const squareGeometry = new THREE.PlaneGeometry(1, 1);
+
+    // Calculate the normal vector of the square's geometry
+    const normal = new THREE.Vector3(x, y, z).normalize();
+
+    // Optionally, you can create a mesh to visualize the square
+    const squareTexture = new THREE.TextureLoader().load(config.dotTexture);
+    const squareMaterial = new THREE.MeshBasicMaterial({ map: squareTexture, transparent: true });
+    const squareMesh = new THREE.Mesh(squareGeometry, squareMaterial);
+    // Set the position of the square's origin on the sphere
+    squareMesh.lookAt(normal); // Orient the square's normal along the line from the sphere's origin to the square's origin
+    squareMesh.position.set(x, y, z);
+    squareMesh.scale.set(scale, scale, 1); // Scale the square
+
+    const planeTexture = new THREE.TextureLoader().load(config.beamTexture);
+    const planeMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            alphaTexture: { value: planeTexture },
+        },
+        vertexShader: `
+            varying vec2 vUv;
+
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            precision highp float;
+            uniform sampler2D alphaTexture;
+            varying vec2 vUv;
+
+            void main() {
+                vec4 color = texture2D(alphaTexture, vUv);
+                gl_FragColor = vec4(1.0,1.0,1.0, color.r * 0.9 ); // Use the red channel as the alpha value
+            }
+        `,
+        transparent: true, // Enable transparenc
+        side: THREE.DoubleSide,
+        depthTest: true,
+    });
+
+
+    const planeHeight = 8.0
+    const planeGeometryX = new THREE.PlaneGeometry(1, planeHeight);
+    const planeGeometryY = new THREE.PlaneGeometry(1, planeHeight);
+
+    // const planeMaterial = new THREE.MeshBasicMaterial({ map: planeTexture, transparent: true, side: THREE.DoubleSide });
+    const planeMeshX = new THREE.Mesh(planeGeometryX, planeMaterial);
+    const planeMeshY = new THREE.Mesh(planeGeometryY, planeMaterial);
+
+    planeGeometryX.translate(0, -planeHeight / 2, 0)
+    planeMeshX.rotation.set(-Math.PI, 0, 0);
+    planeMeshX.position.copy(squareMesh.position);
+    planeMeshX.scale.set(scale, scale, 1);
+
+    planeGeometryY.translate(0, -planeHeight / 2, 0)
+    planeMeshY.rotation.set(-Math.PI, Math.PI / 2, 0);
+    planeMeshY.position.copy(squareMesh.position);
+    planeMeshY.scale.set(scale, scale, 1);
+
+    const group = new THREE.Group();
+    group.add(squareMesh);
+    group.add(planeMeshX);
+    group.add(planeMeshY);
+
+    return group;
 }
 
 let clock = new THREE.Clock();
