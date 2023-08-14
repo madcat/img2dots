@@ -1,14 +1,15 @@
 import * as THREE from 'three'
 import Stats from 'stats.js'
 import { GUI } from 'dat.gui'
-
+import TWEEN, { Tween } from '@tweenjs/tween.js'
 
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { LOCS1 } from './loc.json.js'
 
-let camera, scene, renderer, stats, controls, gui, sphereGeometry, backSphereGeometry, sphere, backSphere, pointGeometry, initialAlphas;
+let camera, scene, renderer, stats, controls, gui, sphereGeometry, backSphereGeometry, sphere, backSphere, pointGeometry, initialAlphas, locMeshes;
 
 let config = {
-
+    cameraDistance: 10,
     radius: 5,
     numPoints: 20000,
     outlineTexture: '/img2dots/earth.png',
@@ -150,6 +151,7 @@ function init() {
 
             // alphaTest: 1
             //depthWrite: false
+            //depthTest: false
         });
 
         // sphere = new THREE.Mesh(sphereGeometry, basicMaterial);
@@ -163,8 +165,10 @@ function init() {
 
 
 
-    // camera.position.z = 10;
     camera.position.y = 10;
+    camera.position.x = 0.01;
+    camera.position.z = 0.01;
+    // camera.position.x = config.cameraDistance;
     camera.lookAt(0, 0, 0);
 
     scene.background = new THREE.Color(0x000000);
@@ -295,7 +299,8 @@ function sampleAndAddPoints(texture) {
         `,
         transparent: true,
         side: THREE.DoubleSide,
-        // depthTest: false,
+        depthTest: true,
+        depthWrite: true
 
     });
     //const pointCloud = new THREE.Points(pointGeometry, pointMaterial);
@@ -304,9 +309,16 @@ function sampleAndAddPoints(texture) {
     pointCloud.renderOrder = 3
     scene.add(pointCloud);
 
-    let loc = addLocation(0, 0, config.radius + 0.01);
-    loc.renderOrder = 3
-    scene.add(loc);
+
+    let locGroup = new THREE.Group()
+    locGroup.renderOrder = 3
+
+    for (var i = 0; i < LOCS1.length; i++) {
+        let loc = addLocation(LOCS1[i].t, LOCS1[i].p, config.radius + 0.01);
+        locGroup.add(loc);
+    }
+
+    scene.add(locGroup);
 }
 
 function addLocation(theta, phi, radius) {
@@ -332,6 +344,7 @@ function addLocation(theta, phi, radius) {
     const squareMesh = new THREE.Mesh(squareGeometry, squareMaterial);
     // Set the position of the square's origin on the sphere
     squareMesh.lookAt(normal); // Orient the square's normal along the line from the sphere's origin to the square's origin
+    const rot = squareMesh.rotation;
     squareMesh.position.set(x, y, z);
     squareMesh.scale.set(scale, scale, 1); // Scale the square
 
@@ -361,6 +374,7 @@ function addLocation(theta, phi, radius) {
         transparent: true, // Enable transparenc
         side: THREE.DoubleSide,
         depthTest: true,
+        depthWrite: false
     });
 
 
@@ -372,22 +386,118 @@ function addLocation(theta, phi, radius) {
     const planeMeshX = new THREE.Mesh(planeGeometryX, planeMaterial);
     const planeMeshY = new THREE.Mesh(planeGeometryY, planeMaterial);
 
-    planeGeometryX.translate(0, -planeHeight / 2, 0)
-    planeMeshX.rotation.set(-Math.PI, 0, 0);
+    planeGeometryX.translate(0, -planeHeight / 2, 0);
+    planeMeshX.lookAt(normal);
+    planeMeshX.rotateX(-Math.PI / 2);
+    planeMeshX.rotateY(Math.PI / 2);
     planeMeshX.position.copy(squareMesh.position);
     planeMeshX.scale.set(scale, scale, 1);
 
     planeGeometryY.translate(0, -planeHeight / 2, 0)
-    planeMeshY.rotation.set(-Math.PI, Math.PI / 2, 0);
+    planeMeshY.lookAt(normal)
+    planeMeshY.rotateX(-Math.PI / 2);
     planeMeshY.position.copy(squareMesh.position);
     planeMeshY.scale.set(scale, scale, 1);
 
+    const lightGroup = new THREE.Group();
+    lightGroup.add(planeMeshX);
+    lightGroup.add(planeMeshY);
+
     const group = new THREE.Group();
     group.add(squareMesh);
-    group.add(planeMeshX);
-    group.add(planeMeshY);
+
+    if (!locMeshes) {
+        locMeshes = []
+    }
+    locMeshes.push(squareMesh);
+    squareMesh.callback = function () {
+        moveCamera(theta, phi)
+    }
+    group.add(lightGroup);
+    // group.add(planeMeshX);
+    // group.add(planeMeshY);
 
     return group;
+}
+
+function sphericalToCartesian(radius, theta, phi) {
+
+    let x, y, z;
+    if (theta === 0) {
+        x = 0;
+        y = radius * Math.cos(phi);
+        z = 0;
+    } else {
+        x = radius * Math.sin(phi) * Math.cos(theta);
+        y = radius * Math.cos(phi);
+        z = radius * Math.sin(phi) * Math.sin(theta);
+    }
+    return new THREE.Vector3(x, y, z);
+}
+
+function cartesianToSpherical(x, y, z) {
+    const radius = Math.sqrt(x * x + y * y + z * z);
+    const theta = Math.atan2(z, x);
+    const phi = Math.atan2(y, Math.sqrt(x * x + z * z));
+    return { radius, theta, phi };
+}
+
+let isAnimatingCamera = false
+let tween = null
+
+function moveCamera(t, p) {
+    isAnimatingCamera = true
+
+    let oldPos = camera.position.clone()
+    if (oldPos.x == 0) {
+        oldPos.x += Math.sign(oldPos.y) * 0.001
+    }
+    let newPos = sphericalToCartesian(config.cameraDistance, t, p)
+    const distance = oldPos.distanceTo(newPos);
+
+    tween = new TWEEN.Tween({ t: 0 })
+        .to({ t: 1 }, 800)
+        .onUpdate(() => {
+
+            const direction = new THREE.Vector3().subVectors(newPos, oldPos).normalize();
+            const position = oldPos.clone().add(direction.multiplyScalar(distance * tween._object.t));
+            camera.position.copy(position);
+
+            // const position = new THREE.Vector3().lerpVectors(oldPos, newPos, tween._object.t);
+            // const direction = position.clone().normalize();
+            // camera.position.copy(direction.multiplyScalar(config.cameraDistance));
+
+
+            camera.lookAt(0, 0, 0);
+            // camera.translateZ(config.cameraDistance);
+        })
+        .easing(TWEEN.Easing.Exponential.Out)
+        .onComplete(() => {
+            isAnimatingCamera = false
+        })
+        .start();
+}
+
+function setupSelectLocation() {
+    var raycaster = new THREE.Raycaster();
+    var mouse = new THREE.Vector2();
+
+    window.addEventListener('click', function (e) {
+
+
+        e.preventDefault();
+        mouse.x = (e.clientX / renderer.domElement.clientWidth) * 2 - 1;
+        mouse.y = - (e.clientY / renderer.domElement.clientHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        var intersects = raycaster.intersectObjects(locMeshes);
+
+        if (intersects.length > 0) {
+            // console.log(intersects[0].object)
+            intersects[0].object.callback();
+            // intersects[1].object.callback();
+        }
+
+    }, false);
 }
 
 let clock = new THREE.Clock();
@@ -424,6 +534,8 @@ function render() {
     }
 
 
+
+    TWEEN.update();
     controls.update();
     renderer.render(scene, camera);
     stats.end();
@@ -431,4 +543,5 @@ function render() {
 
 initStats()
 init()
+setupSelectLocation()
 render()
