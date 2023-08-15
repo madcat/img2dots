@@ -1,7 +1,8 @@
 const LOCS1 = [
     {
-        t: -120,
-        p: 20,
+        more: true,
+        t: Math.PI * 1.328,
+        p: Math.PI * 0.365,
 
     },
     {

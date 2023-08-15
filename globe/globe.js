@@ -6,14 +6,16 @@ import TWEEN, { Tween } from '@tweenjs/tween.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { LOCS1 } from './loc.json.js'
 
-let camera, scene, renderer, stats, controls, gui, sphereGeometry, backSphereGeometry, sphere, backSphere, pointGeometry, initialAlphas, locMeshes;
+let camera, scene, renderer, stats, controls, gui, sphereGeometry, backSphereGeometry, sphere, backSphere, pointGeometry, initialAlphas, locMeshes, particles;
+
+let circle, circle1, circle2
 
 let config = {
     cameraDistance: 10,
     radius: 5,
-    numPoints: 20000,
+    numPoints: 15000,
     outlineTexture: '/img2dots/earth.png',
-    bwTexture: '/img2dots/borders.png',
+    bwTexture: '/img2dots/borders.jpg',
     beamTexture: '/img2dots/beam.jpg',
     dotTexture: '/img2dots/dot.png'
 }
@@ -22,7 +24,7 @@ function initStats() {
     if (stats) return
     stats = new Stats();
     stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
-    document.body.appendChild(stats.dom);
+    // document.body.appendChild(stats.dom);
     stats.dom.style.bottom = 0;
     stats.dom.style.right = 0;
     stats.dom.style.left = 'auto';
@@ -40,10 +42,19 @@ function initGUI() {
 
 function init() {
     scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 10000);
     renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas') });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(2.0)
+
+
+    for (var i = 0; i < 10; i++) {
+        let loc = {
+            t: Math.PI * Math.random() * 2,
+            p: Math.PI * Math.random(),
+        }
+        LOCS1.push(loc)
+    }
 
     sphereGeometry = new THREE.SphereGeometry(config.radius + 0.01, 64, 64);
     sphereGeometry.computeBoundingBox()
@@ -73,7 +84,7 @@ function init() {
     
                 void main() {
                     vec4 color = texture2D(alphaTexture, vUv);
-                    gl_FragColor = vec4(0.3,0.5,0.9, color.r * 1.0 ); // Use the red channel as the alpha value
+                    gl_FragColor = vec4(0.7 ,0.7,0.8, color.r * 0.8 ); // Use the red channel as the alpha value
                 }
             `,
             transparent: true, // Enable transparency
@@ -97,14 +108,22 @@ function init() {
 
         let innerSphereGeometry = new THREE.SphereGeometry(config.radius - 0.1, 32, 32);
         let innerSphereMaterial = new THREE.MeshBasicMaterial({ color: 0x000011, transparent: true });
-        innerSphereMaterial.opacity = 0.8;
+        innerSphereMaterial.opacity = 0.5;
         let innerSphere = new THREE.Mesh(innerSphereGeometry, innerSphereMaterial);
 
         innerSphere.renderOrder = 1;
         sphere.renderOrder = 2;
 
-        //scene.add(innerSphere);
+        scene.add(innerSphere);
         scene.add(sphere);
+
+        let outterSphereGeometry = new THREE.SphereGeometry(6 - 0.1, 32, 32);
+        let outterSphereMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff, transparent: true });
+        outterSphereMaterial.opacity = 0.2;
+        let outterSphere = new THREE.Mesh(outterSphereGeometry, outterSphereMaterial);
+
+        outterSphere.renderOrder = 3;
+        // scene.add(outterSphere);
 
 
         textureLoader.load(config.bwTexture, function (texture) {
@@ -141,7 +160,7 @@ function init() {
     
                 void main() {
                     vec4 color = texture2D(alphaTexture, vUv);
-                    gl_FragColor = vec4(0.3,0.5,0.9, color.r * 0.5 ); // Use the red channel as the alpha value
+                    gl_FragColor = vec4(0.3,0.3,0.4, color.r * 0.6 ); // Use the red channel as the alpha value
                 }
             `,
             transparent: true, // Enable transparency
@@ -163,20 +182,25 @@ function init() {
         scene.add(backSphere);
     });
 
-
-
-    camera.position.y = 10;
+    camera.position.y = 0.01;
     camera.position.x = 0.01;
-    camera.position.z = 0.01;
+    camera.position.z = 15;
     // camera.position.x = config.cameraDistance;
     camera.lookAt(0, 0, 0);
 
+    // scene.fog = new THREE.Fog(0x000000, 1, 18);
     scene.background = new THREE.Color(0x000000);
-    // scene.fog = new THREE.Fog(0x0000cc, 5, 20);
+
 
     controls = new OrbitControls(camera, renderer.domElement, sphere);
-    controls.minDistance = 10;
+    controls.target = new THREE.Vector3(0, 0, 0);
+    // controls.minDistance = 10;
     controls.enableDamping = true;
+    controls.minDistance = 10;
+    controls.enableZoom = true
+    controls.maxDistance = 18;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 1.0;
     controls.update();
 }
 
@@ -255,7 +279,8 @@ function sampleAndAddPoints(texture) {
     let alphas = new Float32Array(remainingPoints.length * 1)
     const colors = new Float32Array(remainingPoints.length * 3)
     for (let i = 0; i < remainingPoints.length; i++) {
-        alphas[i] = 0.5 + 0.5 * Math.random()
+        alphas[i] = 0.4 + 0.2 * Math.random()
+
         colors[i * 3 + 0] = 0.0
         colors[i * 3 + 1] = 1.0
         colors[i * 3 + 2] = 0.0
@@ -272,11 +297,11 @@ function sampleAndAddPoints(texture) {
     pointGeometry.computeBoundingBox()
 
     // initialAlphas = alphas.slilce();
-    const pointMaterial = new THREE.PointsMaterial({ color: 0x0000ff, size: 0.01 });
+    const pointMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.01 });
     const shaderMaterial = new THREE.ShaderMaterial({
 
         uniforms: {
-            color: { value: new THREE.Color(0x0000ff) },
+            color: { value: new THREE.Color(0xffffff) },
         },
         vertexShader: `
             attribute float alpha;
@@ -285,7 +310,7 @@ function sampleAndAddPoints(texture) {
             void main() {
                 vAlpha = alpha;
                 vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
-                gl_PointSize = 5.0;
+                gl_PointSize = 3.0;
                 gl_Position = projectionMatrix * mvPosition;
             }
         `,
@@ -309,38 +334,52 @@ function sampleAndAddPoints(texture) {
     pointCloud.renderOrder = 3
     scene.add(pointCloud);
 
+    particles = addParticles(7, 12, 400)
+    scene.add(particles)
+
+    circle = addCircle(5.5, Math.PI / 4)
+    circle1 = addCircle(5.5, Math.PI * 1.25)
+    circle2 = addCircle(5.5, Math.PI * 1.8)
+    scene.add(circle)
+    scene.add(circle1)
+    scene.add(circle2)
 
     let locGroup = new THREE.Group()
     locGroup.renderOrder = 3
 
     for (var i = 0; i < LOCS1.length; i++) {
-        let loc = addLocation(LOCS1[i].t, LOCS1[i].p, config.radius + 0.01);
+        let loc = addLocation(LOCS1[i], config.radius + 0.01);
         locGroup.add(loc);
     }
 
     scene.add(locGroup);
 }
 
-function addLocation(theta, phi, radius) {
+function addLocation(loc, radius) {
     // const radius = 10; // Radius of the sphere
     // const theta = Math.PI / 4; // Theta angle in radians
     // const phi = Math.PI / 6; // Phi angle in radians
-    const scale = 0.2; // Scale factor for the square
+    const scale = 0.5; // Scale factor for the square
+    const theta = loc.t;
+    const phi = loc.p;
 
+    const r = radius + 0.1;
     // Calculate the 3D position of the square's origin on the sphere
-    const x = radius * Math.sin(phi) * Math.cos(theta);
-    const y = radius * Math.cos(phi);
-    const z = radius * Math.sin(phi) * Math.sin(theta);
+    const x = r * Math.sin(phi) * Math.cos(theta);
+    const y = r * Math.cos(phi);
+    const z = r * Math.sin(phi) * Math.sin(theta);
 
     // Create the square geometry with sides of length 1
     const squareGeometry = new THREE.PlaneGeometry(1, 1);
+
+    let color = loc.more ? 0xffeb14 : 0xffffff;
 
     // Calculate the normal vector of the square's geometry
     const normal = new THREE.Vector3(x, y, z).normalize();
 
     // Optionally, you can create a mesh to visualize the square
     const squareTexture = new THREE.TextureLoader().load(config.dotTexture);
-    const squareMaterial = new THREE.MeshBasicMaterial({ map: squareTexture, transparent: true });
+    const squareMaterial = new THREE.MeshBasicMaterial({ map: squareTexture, transparent: true, color: new THREE.Color(color), side: THREE.DoubleSide });
     const squareMesh = new THREE.Mesh(squareGeometry, squareMaterial);
     // Set the position of the square's origin on the sphere
     squareMesh.lookAt(normal); // Orient the square's normal along the line from the sphere's origin to the square's origin
@@ -352,6 +391,7 @@ function addLocation(theta, phi, radius) {
     const planeMaterial = new THREE.ShaderMaterial({
         uniforms: {
             alphaTexture: { value: planeTexture },
+            newColor: { value: new THREE.Color(color) }
         },
         vertexShader: `
             varying vec2 vUv;
@@ -364,11 +404,12 @@ function addLocation(theta, phi, radius) {
         fragmentShader: `
             precision highp float;
             uniform sampler2D alphaTexture;
+            uniform vec3 newColor;
             varying vec2 vUv;
 
             void main() {
                 vec4 color = texture2D(alphaTexture, vUv);
-                gl_FragColor = vec4(1.0,1.0,1.0, color.r * 0.9 ); // Use the red channel as the alpha value
+                gl_FragColor = vec4(newColor.x, newColor.y, newColor.z, color.r * 0.9 ); // Use the red channel as the alpha value
             }
         `,
         transparent: true, // Enable transparenc
@@ -378,7 +419,7 @@ function addLocation(theta, phi, radius) {
     });
 
 
-    const planeHeight = 8.0
+    const planeHeight = 3.0
     const planeGeometryX = new THREE.PlaneGeometry(1, planeHeight);
     const planeGeometryY = new THREE.PlaneGeometry(1, planeHeight);
 
@@ -414,10 +455,74 @@ function addLocation(theta, phi, radius) {
         moveCamera(theta, phi)
     }
     group.add(lightGroup);
-    // group.add(planeMeshX);
-    // group.add(planeMeshY);
 
     return group;
+}
+
+function addCircle(radius, theta) {
+    // const torusGeometry = new THREE.TorusGeometry(radius, 0.01, 32, 64);
+    // const torusMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, opacity: 0.2, transparent: true });
+    // const torusMesh = new THREE.LineLoop(torusGeometry, torusMaterial);
+    // torusMesh.opacity = 0.8;
+    // torusMesh.rotation.x = theta;
+    // // torusMesh.position.set(0, 0, 0);
+    // return torusMesh;
+
+    const curve = new THREE.EllipseCurve(
+        0, 0,           // x, y
+        radius, radius, // xRadius, yRadius
+        0, 2 * Math.PI, // startAngle, endAngle
+        false,          // clockwise
+        0                // rotation
+    );
+    const points = curve.getPoints(64);
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const material = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7, linewidth: 5.5 });
+    const line = new THREE.Line(geometry, material);
+    line.position.set(0, 0, 0);
+    line.rotation.x = theta;
+    return line;
+}
+
+// spherical random particles
+function addParticles(minRadius, maxRadius, count) {
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(count * 3);
+    const rotations = new Float32Array(count * 3);
+    const rotationSpeeds = new Float32Array(count * 3);
+    const alphas = new Float32Array(count);
+
+    for (let i = 0; i < count; i++) {
+        let position, distance;
+        do {
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(Math.random() * 2 - 1);
+            const r = minRadius + Math.random() * (maxRadius - minRadius)
+            position = sphericalToCartesian(r, theta, phi);
+            distance = position.length();
+        } while (distance < minRadius || distance > maxRadius);
+
+        positions[i * 3] = position.x;
+        positions[i * 3 + 1] = position.y;
+        positions[i * 3 + 2] = position.z;
+
+        const rotationSpeed = (maxRadius - distance) / maxRadius;
+        rotations[i * 3] = Math.random() * Math.PI * 2;
+        rotations[i * 3 + 1] = Math.random() * Math.PI * 2;
+        rotations[i * 3 + 2] = Math.random() * Math.PI * 2;
+        rotationSpeeds[i * 3 + 2] = rotationSpeed;
+
+        alphas[i] = Math.random() * 0.4 + 0.4;
+    }
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('rotation', new THREE.BufferAttribute(rotations, 3));
+    geometry.setAttribute('rotationSpeed', new THREE.BufferAttribute(rotationSpeeds, 3));
+    geometry.setAttribute('alpha', new THREE.BufferAttribute(alphas, 1));
+    const material = new THREE.PointsMaterial({ color: 0xaabbff, size: 0.1, transparent: true, alphaTest: 0.01, opacity: 0.5 });
+    const particles = new THREE.Points(geometry, material);
+
+    return particles;
 }
 
 function sphericalToCartesian(radius, theta, phi) {
@@ -521,19 +626,42 @@ function render() {
 
     //     alphaAttrs.needsUpdate = true;
     // // }
+    time += clock.getDelta();
+    const angle = Math.PI / 360;
+
     if (pointGeometry && initialAlphas) {
-        time += clock.getDelta();
+
 
         let currentAlphas = pointGeometry.attributes.alpha.array;
         for (let i = 0; i < currentAlphas.length; i++) {
-            //currentAlphas[i] = initialAlphas[i] * (0.8 + 0.2 * Math.sin(time * 2.0 + i * 0.1));
-            currentAlphas[i] = initialAlphas[i] + (1.0 - initialAlphas[i]) * Math.sin(time * 2.0 + i * 0.1);
-
+            // animate alpha between initial to 0.7
+            currentAlphas[i] = (initialAlphas[i] - 0.1) + (0.2 * Math.sin(time * 2.0 + i * 0.1));
         }
         pointGeometry.attributes.alpha.needsUpdate = true;
     }
 
+    // if (particles) {
+    //     particles.geometry.attributes.position.array.forEach((position, index) => {
+    //         const distance = Math.sqrt(position ** 2 + (position + 1) ** 2 + position ** 2);
+    //         const rotationSpeed = (10 - distance) / 10;
+    //         const vector = new THREE.Vector3(position, position + 1, position);
+    //         vector.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle * rotationSpeed);
+    //         particles.geometry.attributes.position.array[index * 3] = vector.x;
+    //         particles.geometry.attributes.position.array[index * 3 + 1] = vector.y - 1;
+    //         particles.geometry.attributes.position.array[index * 3 + 2] = vector.z;
+    //     });
+    //     particles.geometry.attributes.position.needsUpdate = true;
+    // }
 
+    if (circle) {
+        circle.rotation.y += angle / 6;
+        circle1.rotation.y += angle / 9;
+        circle2.rotation.y += angle / 12;
+    }
+
+    if (sphere) {
+        // sphere.rotation.y += angle / 15;
+    }
 
     TWEEN.update();
     controls.update();
