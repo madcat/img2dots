@@ -20,6 +20,10 @@ let config = {
     dotTexture: '/img2dots/dot.png'
 }
 
+let state = {
+    showLocations: true,
+}
+
 function initStats() {
     if (stats) return
     stats = new Stats();
@@ -43,10 +47,10 @@ function initGUI() {
 function init() {
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 10000);
-    renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas') });
+    renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas'), alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(2.0)
-
+    renderer.setClearColor(0x000000, 0.5);
 
     for (var i = 0; i < 10; i++) {
         let loc = {
@@ -189,7 +193,7 @@ function init() {
     camera.lookAt(0, 0, 0);
 
     // scene.fog = new THREE.Fog(0x000000, 1, 18);
-    scene.background = new THREE.Color(0x000000);
+    // scene.background = new THREE.Color(0x000000);
 
 
     controls = new OrbitControls(camera, renderer.domElement, sphere);
@@ -353,13 +357,22 @@ function sampleAndAddPoints(texture) {
     }
 
     scene.add(locGroup);
+
+    window.addEventListener('keyup', function (e) {
+        // console.log(e.code)
+        if (e.code === 'Space') {
+            locGroup.visible = !locGroup.visible
+        } else if (e.code === 'KeyR') {
+            controls.autoRotate = !controls.autoRotate
+        }
+    })
 }
 
 function addLocation(loc, radius) {
     // const radius = 10; // Radius of the sphere
     // const theta = Math.PI / 4; // Theta angle in radians
     // const phi = Math.PI / 6; // Phi angle in radians
-    const scale = 0.5; // Scale factor for the square
+    const scale = 0.3; // Scale factor for the square
     const theta = loc.t;
     const phi = loc.p;
 
