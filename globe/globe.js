@@ -6,7 +6,7 @@ import TWEEN, { Tween } from '@tweenjs/tween.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { LOCS1 } from './loc.json.js'
 
-let camera, scene, renderer, stats, controls, gui, sphereGeometry, backSphereGeometry, sphere, backSphere, pointGeometry, initialAlphas, locMeshes, particles;
+let camera, scene, renderer, stats, controls, gui, sphereGeometry, backSphereGeometry, sphere, backSphere, pointGeometry, initialAlphas, locGroup, locMeshes, particles;
 
 let circle, circle1, circle2
 
@@ -14,10 +14,18 @@ let config = {
     cameraDistance: 10,
     radius: 5,
     numPoints: 15000,
-    outlineTexture: '/img2dots/earth.png',
-    bwTexture: '/img2dots/borders.jpg',
-    beamTexture: '/img2dots/beam.jpg',
-    dotTexture: '/img2dots/dot.png'
+    outlineTexture: 'earth.png',
+    bwTexture: 'borders.jpg',
+    beamTexture: 'beam.jpg',
+    dotTexture: 'dot.png',
+
+    toggleLocations: function () {
+        locGroup.visible = !locGroup.visible
+    },
+
+    toggleAutoRotate: function () {
+        controls.autoRotate = !controls.autoRotate
+    }
 }
 
 let state = {
@@ -37,11 +45,15 @@ function initStats() {
 
 function initGUI() {
     if (gui) return
-    gui = new GUI({ autoPlace: false })
-    gui.domElement.id = 'dat-gui'
-    const folder = gui.addFolder('Config')
-    folder.open()
-    document.getElementById('dat-gui-container').appendChild(gui.domElement)
+    GUI.TEXT_CLOSED = '︿'
+    GUI.TEXT_OPEN = '﹀'
+    gui = new GUI({ autoPlace: true, width: 100 })
+    // gui.domElement.id = 'dat-gui'
+    //    const folder = gui.addFolder('Config')
+    gui.add(config, 'toggleLocations').name('LOC')
+    gui.add(config, 'toggleAutoRotate').name('ROT')
+    //folder.open()
+    // document.getElementById('dat-gui-container').appendChild(gui.domElement)
 }
 
 function init() {
@@ -50,7 +62,7 @@ function init() {
     renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas'), alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(2.0)
-    renderer.setClearColor(0x000000, 0.5);
+    renderer.setClearColor(0x000000, 0.6);
 
     for (var i = 0; i < 10; i++) {
         let loc = {
@@ -202,6 +214,7 @@ function init() {
     controls.enableDamping = true;
     controls.minDistance = 10;
     controls.enableZoom = true
+    controls.enablePan = false
     controls.maxDistance = 18;
     controls.autoRotate = true;
     controls.autoRotateSpeed = 1.0;
@@ -348,7 +361,7 @@ function sampleAndAddPoints(texture) {
     scene.add(circle1)
     scene.add(circle2)
 
-    let locGroup = new THREE.Group()
+    locGroup = new THREE.Group()
     locGroup.renderOrder = 3
 
     for (var i = 0; i < LOCS1.length; i++) {
@@ -596,26 +609,35 @@ function moveCamera(t, p) {
         .start();
 }
 
-function setupSelectLocation() {
+function selectLOC(pos) {
     var raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(pos, camera);
+    var intersects = raycaster.intersectObjects(locMeshes);
+
+    if (intersects.length > 0) {
+        // console.log(intersects[0].object)
+        intersects[0].object.callback();
+        // intersects[1].object.callback();
+    }
+}
+
+function setupSelectLocation() {
+
     var mouse = new THREE.Vector2();
 
     window.addEventListener('click', function (e) {
-
-
-        e.preventDefault();
+        //e.preventDefault();
         mouse.x = (e.clientX / renderer.domElement.clientWidth) * 2 - 1;
         mouse.y = - (e.clientY / renderer.domElement.clientHeight) * 2 + 1;
-        raycaster.setFromCamera(mouse, camera);
-        var intersects = raycaster.intersectObjects(locMeshes);
-
-        if (intersects.length > 0) {
-            // console.log(intersects[0].object)
-            intersects[0].object.callback();
-            // intersects[1].object.callback();
-        }
-
+        selectLOC(mouse);
     }, false);
+
+    window.addEventListener('touchend', function (e) {
+        //e.preventDefault();
+        mouse.x = (e.changedTouches[0].clientX / renderer.domElement.clientWidth) * 2 - 1;
+        mouse.y = - (e.changedTouches[0].clientY / renderer.domElement.clientHeight) * 2 + 1;
+        selectLOC(mouse);
+    })
 }
 
 let clock = new THREE.Clock();
@@ -684,5 +706,6 @@ function render() {
 
 initStats()
 init()
+initGUI()
 setupSelectLocation()
 render()
