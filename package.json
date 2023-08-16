@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "npx vite --host",
-    "build": "npx vite build --base=/img2dots/ && cp -r dist/* ../lingfei.dev/public/img2dots/",
+    "build": "npx vite build --base=/img2dots/ && rm -rf ../lingfei.dev/public/img2dots && mkdir -p ../lingfei.dev/public/img2dots && cp -r dist/* ../lingfei.dev/public/img2dots/",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
