@@ -19,6 +19,7 @@ let config = {
     opacity: 0.3,
     circleOpacity: 0.3,
     borderOpacity: 1.0,
+    backBorderOpacity: 0.6,
     selectDelay: 1000,
 
     initialRotationY: 0,
@@ -64,6 +65,7 @@ function initGUI() {
     gui.add(config, 'opacity', 0, 1).name('BODY').onChange(value => innerSphere.material.opacity = value)
     gui.add(config, 'circleOpacity', 0, 1).name('ORBIT').onChange(value => orbitGroup.children.forEach(c => c.material.opacity = value))
     gui.add(config, 'borderOpacity', 0, 1).name('BORDER').onChange(value => sphere.material.uniforms.lineOpacity.value = value)
+    gui.add(config, 'backBorderOpacity', 0, 1).name('BORDER BACK').onChange(value => backSphere.material.uniforms.lineOpacity.value = value)
     gui.add(config, 'pointSize', 3.0, 9.0).name('DOT SIZE').onChange(value => pointCloud.material.uniforms.pointSize.value = value)
     gui.add(config, 'zoomOneCameraDistance', 12.0, 28.0).name('BORDER@')
 }
@@ -145,7 +147,7 @@ function init() {
 
         let innerSphereGeometry = new THREE.SphereGeometry(config.radius - 0.1, 32, 32);
         let innerSphereMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true });
-        innerSphereMaterial.opacity = 0.3;
+        innerSphereMaterial.opacity = config.opacity;
         innerSphere = new THREE.Mesh(innerSphereGeometry, innerSphereMaterial);
 
         innerSphere.renderOrder = 1;
@@ -172,18 +174,13 @@ function init() {
 
     backSphereGeometry = new THREE.SphereGeometry(config.radius + 0.01, 64, 64);
     backSphereGeometry.computeBoundingBox()
-    const textureLoader1 = new THREE.TextureLoader();
 
-    let material1 = null
-    textureLoader1.load(config.outlineTexture, function (texture) {
-        texture.needsUpdate = true;
-        texture.anisotropy = 16
-
-        material1 = new THREE.ShaderMaterial({
-            uniforms: {
-                alphaTexture: { value: texture },
-            },
-            vertexShader: `
+    let material1 = new THREE.ShaderMaterial({
+        uniforms: {
+            alphaTexture: { value: contourTexture },
+            lineOpacity: { value: config.backBorderOpacity },
+        },
+        vertexShader: `
                 varying vec2 vUv;
     
                 void main() {
@@ -191,35 +188,30 @@ function init() {
                     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
                 }
             `,
-            fragmentShader: `
+        fragmentShader: `
                 precision highp float;
                 uniform sampler2D alphaTexture;
                 varying vec2 vUv;
+                uniform float lineOpacity;
     
                 void main() {
                     vec4 color = texture2D(alphaTexture, vUv);
-                    gl_FragColor = vec4(0.3,0.3,0.4, color.r * 0.6 ); // Use the red channel as the alpha value
+                    gl_FragColor = vec4(1,1,1, color.r * lineOpacity ); // Use the red channel as the alpha value
                 }
             `,
-            transparent: true, // Enable transparency
-            side: THREE.BackSide,
-            // cullFace: THREE.CullFaceNone,
-            // blending: THREE.AdditiveBlending
-
-            // alphaTest: 1
-            //depthWrite: false
-            //depthTest: false
-        });
-
-        // sphere = new THREE.Mesh(sphereGeometry, basicMaterial);
-        backSphere = new THREE.Mesh(backSphereGeometry, material1);
-        backSphere.renderForceSinglePass = false
-        // sphere.flipSided = false
-        // sphere.DoubleSided = true
-        // sphere.renderOrder = 1;
-        backSphere.rotateY(config.initialRotationY)
-        scene.add(backSphere);
+        transparent: true, // Enable transparency
+        side: THREE.BackSide,
     });
+
+    // sphere = new THREE.Mesh(sphereGeometry, basicMaterial);
+    backSphere = new THREE.Mesh(backSphereGeometry, material1);
+    backSphere.renderForceSinglePass = false
+    // sphere.flipSided = false
+    // sphere.DoubleSided = true
+    // sphere.renderOrder = 1;
+    backSphere.rotateY(config.initialRotationY)
+    scene.add(backSphere);
+
 
     camera.position.y = 0.01;
     camera.position.x = -10;
