@@ -6,18 +6,27 @@ import TWEEN, { Tween } from '@tweenjs/tween.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { LOCS1 } from './loc.json.js'
 
-let camera, scene, renderer, stats, controls, gui, sphereGeometry, backSphereGeometry, sphere, backSphere, pointGeometry, initialAlphas, locGroup, locMeshes, particles;
+let camera, scene, renderer, stats, controls, gui, sphereGeometry, backSphereGeometry, sphere, backSphere, innerSphere, pointGeometry, pointCloud, initialAlphas, locGroup, orbitGroup, locMeshes, particles;
 
 let circle, circle1, circle2
 
 let config = {
-    cameraDistance: 10,
+    cameraDistance: 30,
     radius: 5,
     numPoints: 15000,
+    pointSize: 5.0,
+    opacity: 0.3,
+    circleOpacity: 0.3,
+    borderOpacity: 1.0,
+    selectDelay: 1000,
+
+    initialRotationY: 0,
+
     outlineTexture: 'earth.png',
     bwTexture: 'borders.jpg',
     beamTexture: 'beam.jpg',
     dotTexture: 'dot.png',
+    contourTexture: 'contour.png',
 
     toggleLocations: function () {
         locGroup.visible = !locGroup.visible
@@ -47,13 +56,15 @@ function initGUI() {
     if (gui) return
     GUI.TEXT_CLOSED = '︿'
     GUI.TEXT_OPEN = '﹀'
-    gui = new GUI({ autoPlace: true, width: 100 })
+    gui = new GUI({ autoPlace: true, width: 170 })
     // gui.domElement.id = 'dat-gui'
     //    const folder = gui.addFolder('Config')
     gui.add(config, 'toggleLocations').name('LOC')
     gui.add(config, 'toggleAutoRotate').name('ROT')
-    //folder.open()
-    // document.getElementById('dat-gui-container').appendChild(gui.domElement)
+    gui.add(config, 'opacity', 0, 1).name('BODY').onChange(value => innerSphere.material.opacity = value)
+    gui.add(config, 'circleOpacity', 0, 1).name('ORBIT').onChange(value => orbitGroup.children.forEach(c => c.material.opacity = value))
+    gui.add(config, 'borderOpacity', 0, 1).name('BORDER').onChange(value => sphere.material.uniforms.lineOpacity.value = value)
+    gui.add(config, 'pointSize', 3.0, 9.0).name('DOT SIZE').onChange(value => pointCloud.material.uniforms.pointSize.value = value)
 }
 
 function init() {
@@ -84,6 +95,7 @@ function init() {
         material = new THREE.ShaderMaterial({
             uniforms: {
                 alphaTexture: { value: texture },
+                lineOpacity: { value: config.borderOpacity },
             },
             vertexShader: `
                 varying vec2 vUv;
@@ -96,11 +108,12 @@ function init() {
             fragmentShader: `
                 precision highp float;
                 uniform sampler2D alphaTexture;
+                uniform float lineOpacity;
                 varying vec2 vUv;
     
                 void main() {
                     vec4 color = texture2D(alphaTexture, vUv);
-                    gl_FragColor = vec4(0.7 ,0.7,0.8, color.r * 0.8 ); // Use the red channel as the alpha value
+                    gl_FragColor = vec4(1,1,1, color.r * lineOpacity ); // Use the red channel as the alpha value
                 }
             `,
             transparent: true, // Enable transparency
@@ -113,8 +126,6 @@ function init() {
             //depthWrite: false
         });
 
-        let basicMaterial = new THREE.MeshBasicMaterial({ map: texture, opacity: 0.3, transparent: true, side: THREE.DoubleSide, depthTest: false });
-
         // sphere = new THREE.Mesh(sphereGeometry, basicMaterial);
         sphere = new THREE.Mesh(sphereGeometry, material);
         sphere.renderForceSinglePass = false
@@ -123,12 +134,13 @@ function init() {
         // sphere.renderOrder = 1;
 
         let innerSphereGeometry = new THREE.SphereGeometry(config.radius - 0.1, 32, 32);
-        let innerSphereMaterial = new THREE.MeshBasicMaterial({ color: 0x000011, transparent: true });
-        innerSphereMaterial.opacity = 0.5;
-        let innerSphere = new THREE.Mesh(innerSphereGeometry, innerSphereMaterial);
+        let innerSphereMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true });
+        innerSphereMaterial.opacity = 0.3;
+        innerSphere = new THREE.Mesh(innerSphereGeometry, innerSphereMaterial);
 
         innerSphere.renderOrder = 1;
         sphere.renderOrder = 2;
+        sphere.rotateY(config.initialRotationY)
 
         scene.add(innerSphere);
         scene.add(sphere);
@@ -195,18 +207,19 @@ function init() {
         // sphere.flipSided = false
         // sphere.DoubleSided = true
         // sphere.renderOrder = 1;
+        backSphere.rotateY(config.initialRotationY)
         scene.add(backSphere);
     });
 
     camera.position.y = 0.01;
-    camera.position.x = 0.01;
-    camera.position.z = 15;
-    // camera.position.x = config.cameraDistance;
+    camera.position.x = -10;
+    camera.position.z = -10;
+
     camera.lookAt(0, 0, 0);
+    camera.position.setLength(config.cameraDistance);
 
     // scene.fog = new THREE.Fog(0x000000, 1, 18);
     // scene.background = new THREE.Color(0x000000);
-
 
     controls = new OrbitControls(camera, renderer.domElement, sphere);
     controls.target = new THREE.Vector3(0, 0, 0);
@@ -215,7 +228,7 @@ function init() {
     controls.minDistance = 10;
     controls.enableZoom = true
     controls.enablePan = false
-    controls.maxDistance = 18;
+    controls.maxDistance = config.cameraDistance;
     controls.autoRotate = true;
     controls.autoRotateSpeed = 1.0;
     controls.update();
@@ -313,21 +326,21 @@ function sampleAndAddPoints(texture) {
     pointGeometry.setAttribute('alpha', new THREE.BufferAttribute(alphas, 1))
     pointGeometry.computeBoundingBox()
 
-    // initialAlphas = alphas.slilce();
-    const pointMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.01 });
     const shaderMaterial = new THREE.ShaderMaterial({
 
         uniforms: {
             color: { value: new THREE.Color(0xffffff) },
+            pointSize: { value: config.pointSize }
         },
         vertexShader: `
             attribute float alpha;
             varying float vAlpha;
+            uniform float pointSize;
 
             void main() {
                 vAlpha = alpha;
                 vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
-                gl_PointSize = 3.0;
+                gl_PointSize = pointSize * ( 10.0 / -mvPosition.z );
                 gl_Position = projectionMatrix * mvPosition;
             }
         `,
@@ -345,10 +358,11 @@ function sampleAndAddPoints(texture) {
         depthWrite: true
 
     });
-    //const pointCloud = new THREE.Points(pointGeometry, pointMaterial);
-    const pointCloud = new THREE.Points(pointGeometry, shaderMaterial);
+
+    pointCloud = new THREE.Points(pointGeometry, shaderMaterial);
     pointCloud.renderForceSinglePass = false
     pointCloud.renderOrder = 3
+    pointCloud.rotateY(config.initialRotationY)
     scene.add(pointCloud);
 
     particles = addParticles(7, 12, 400)
@@ -357,9 +371,12 @@ function sampleAndAddPoints(texture) {
     circle = addCircle(5.5, Math.PI / 4)
     circle1 = addCircle(5.5, Math.PI * 1.25)
     circle2 = addCircle(5.5, Math.PI * 1.8)
-    scene.add(circle)
-    scene.add(circle1)
-    scene.add(circle2)
+
+    orbitGroup = new THREE.Group()
+    orbitGroup.add(circle)
+    orbitGroup.add(circle1)
+    orbitGroup.add(circle2)
+    scene.add(orbitGroup)
 
     locGroup = new THREE.Group()
     locGroup.renderOrder = 3
@@ -369,6 +386,7 @@ function sampleAndAddPoints(texture) {
         locGroup.add(loc);
     }
 
+    locGroup.rotateY(config.initialRotationY)
     scene.add(locGroup);
 
     window.addEventListener('keyup', function (e) {
@@ -486,14 +504,6 @@ function addLocation(loc, radius) {
 }
 
 function addCircle(radius, theta) {
-    // const torusGeometry = new THREE.TorusGeometry(radius, 0.01, 32, 64);
-    // const torusMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, opacity: 0.2, transparent: true });
-    // const torusMesh = new THREE.LineLoop(torusGeometry, torusMaterial);
-    // torusMesh.opacity = 0.8;
-    // torusMesh.rotation.x = theta;
-    // // torusMesh.position.set(0, 0, 0);
-    // return torusMesh;
-
     const curve = new THREE.EllipseCurve(
         0, 0,           // x, y
         radius, radius, // xRadius, yRadius
@@ -503,7 +513,8 @@ function addCircle(radius, theta) {
     );
     const points = curve.getPoints(64);
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const material = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7, linewidth: 5.5 });
+    const material = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, linewidth: 10 });
+    material.opacity = config.circleOpacity;
     const line = new THREE.Line(geometry, material);
     line.position.set(0, 0, 0);
     line.rotation.x = theta;
@@ -579,28 +590,23 @@ let tween = null
 function moveCamera(t, p) {
     isAnimatingCamera = true
 
+    let r = camera.position.distanceTo(new THREE.Vector3(0, 0, 0))
+
     let oldPos = camera.position.clone()
     if (oldPos.x == 0) {
         oldPos.x += Math.sign(oldPos.y) * 0.001
     }
-    let newPos = sphericalToCartesian(config.cameraDistance, t, p)
+    let newPos = sphericalToCartesian(r, t, p)
     const distance = oldPos.distanceTo(newPos);
 
     tween = new TWEEN.Tween({ t: 0 })
-        .to({ t: 1 }, 800)
+        .to({ t: 1 }, 1000)
         .onUpdate(() => {
 
             const direction = new THREE.Vector3().subVectors(newPos, oldPos).normalize();
             const position = oldPos.clone().add(direction.multiplyScalar(distance * tween._object.t));
             camera.position.copy(position);
-
-            // const position = new THREE.Vector3().lerpVectors(oldPos, newPos, tween._object.t);
-            // const direction = position.clone().normalize();
-            // camera.position.copy(direction.multiplyScalar(config.cameraDistance));
-
-
             camera.lookAt(0, 0, 0);
-            // camera.translateZ(config.cameraDistance);
         })
         .easing(TWEEN.Easing.Exponential.Out)
         .onComplete(() => {
@@ -616,7 +622,8 @@ function selectLOC(pos) {
 
     if (intersects.length > 0) {
         // console.log(intersects[0].object)
-        intersects[0].object.callback();
+        controls.autoRotate = false;
+        setTimeout(intersects[0].object.callback, config.selectDelay);
         // intersects[1].object.callback();
     }
 }
