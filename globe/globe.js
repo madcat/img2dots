@@ -11,7 +11,8 @@ let camera, scene, renderer, stats, controls, gui, sphereGeometry, backSphereGeo
 let circle, circle1, circle2
 
 let config = {
-    cameraDistance: 30,
+    minCameraDistance: 10,
+    maxCameraDistance: 30,
     radius: 5,
     numPoints: 15000,
     pointSize: 5.0,
@@ -21,6 +22,9 @@ let config = {
     selectDelay: 1000,
 
     initialRotationY: 0,
+
+    zoomOneCameraDistance: 15,
+    zoomOneDelta: 2.0, // zoomOneCameraDistance +- zoomOneDelta/2
 
     outlineTexture: 'earth.png',
     bwTexture: 'borders.jpg',
@@ -35,10 +39,6 @@ let config = {
     toggleAutoRotate: function () {
         controls.autoRotate = !controls.autoRotate
     }
-}
-
-let state = {
-    showLocations: true,
 }
 
 function initStats() {
@@ -56,7 +56,7 @@ function initGUI() {
     if (gui) return
     GUI.TEXT_CLOSED = '︿'
     GUI.TEXT_OPEN = '﹀'
-    gui = new GUI({ autoPlace: true, width: 170 })
+    gui = new GUI({ autoPlace: true, width: 190 })
     // gui.domElement.id = 'dat-gui'
     //    const folder = gui.addFolder('Config')
     gui.add(config, 'toggleLocations').name('LOC')
@@ -65,6 +65,7 @@ function initGUI() {
     gui.add(config, 'circleOpacity', 0, 1).name('ORBIT').onChange(value => orbitGroup.children.forEach(c => c.material.opacity = value))
     gui.add(config, 'borderOpacity', 0, 1).name('BORDER').onChange(value => sphere.material.uniforms.lineOpacity.value = value)
     gui.add(config, 'pointSize', 3.0, 9.0).name('DOT SIZE').onChange(value => pointCloud.material.uniforms.pointSize.value = value)
+    gui.add(config, 'zoomOneCameraDistance', 12.0, 28.0).name('BORDER@')
 }
 
 function init() {
@@ -88,6 +89,8 @@ function init() {
     const textureLoader = new THREE.TextureLoader();
 
     let material = null
+
+    let contourTexture = textureLoader.load(config.contourTexture);
     textureLoader.load(config.outlineTexture, function (texture) {
         texture.needsUpdate = true;
         texture.anisotropy = 16
@@ -95,7 +98,9 @@ function init() {
         material = new THREE.ShaderMaterial({
             uniforms: {
                 alphaTexture: { value: texture },
+                contourTexture: { value: contourTexture },
                 lineOpacity: { value: config.borderOpacity },
+                zoom: { value: 0 } // 0 - contour, 1 - border, between - mix
             },
             vertexShader: `
                 varying vec2 vUv;
@@ -108,12 +113,17 @@ function init() {
             fragmentShader: `
                 precision highp float;
                 uniform sampler2D alphaTexture;
+                uniform sampler2D contourTexture;
                 uniform float lineOpacity;
+                uniform float zoom;
                 varying vec2 vUv;
     
                 void main() {
                     vec4 color = texture2D(alphaTexture, vUv);
-                    gl_FragColor = vec4(1,1,1, color.r * lineOpacity ); // Use the red channel as the alpha value
+                    vec4 color1 = texture2D(contourTexture, vUv);
+                    // if zoom is 0 alpha is from color.r, if zoom is 1 alpha is from color1.r, between - mix
+                    float alpha = mix(color.r, color1.r, zoom);
+                    gl_FragColor = vec4(1,1,1, alpha * lineOpacity ); // Use the red channel as the alpha value
                 }
             `,
             transparent: true, // Enable transparency
@@ -216,7 +226,7 @@ function init() {
     camera.position.z = -10;
 
     camera.lookAt(0, 0, 0);
-    camera.position.setLength(config.cameraDistance);
+    camera.position.setLength(config.maxCameraDistance);
 
     // scene.fog = new THREE.Fog(0x000000, 1, 18);
     // scene.background = new THREE.Color(0x000000);
@@ -225,10 +235,10 @@ function init() {
     controls.target = new THREE.Vector3(0, 0, 0);
     // controls.minDistance = 10;
     controls.enableDamping = true;
-    controls.minDistance = 10;
+    controls.minDistance = config.minCameraDistance;
     controls.enableZoom = true
     controls.enablePan = false
-    controls.maxDistance = config.cameraDistance;
+    controls.maxDistance = config.maxCameraDistance;
     controls.autoRotate = true;
     controls.autoRotateSpeed = 1.0;
     controls.update();
@@ -702,8 +712,18 @@ function render() {
     }
 
     if (sphere) {
-        // sphere.rotation.y += angle / 15;
+
+        let dist = camera.position.distanceTo(new THREE.Vector3(0, 0, 0))
+        if (dist < config.zoomOneCameraDistance - config.zoomOneDelta / 2.0) {
+            sphere.material.uniforms.zoom.value = 0
+        } else if (dist > config.zoomTwoCameraDistance + config.zoomTwoDelta / 2.0) {
+            sphere.material.uniforms.zoom.value = 1
+        } else {
+            let p = (dist - config.zoomOneCameraDistance + config.zoomOneDelta / 2.0) / config.zoomOneDelta
+            sphere.material.uniforms.zoom.value = p
+        }
     }
+
 
     TWEEN.update();
     controls.update();

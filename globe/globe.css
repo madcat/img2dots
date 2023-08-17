@@ -24,3 +24,12 @@ body {
     z-index: 100;
     pointer-events: all; */
 }
+
+.property-name {
+    font-size: 10px;
+}
+
+.close-button {
+    background-color: rgba(0, 0, 0, 0) !important;
+
+}
