@@ -36,9 +36,9 @@ document.addEventListener('alpine:init', () => {
             const ctx = canvas.getContext('2d');
             const img = new Image();
             // const reader = new FileReader()
+            this.uploaded = true
 
-
-
+            var that = this
 
             // reader.onload = (e) => {
             // img.src = e.target.result
@@ -48,9 +48,6 @@ document.addEventListener('alpine:init', () => {
                 resetCanvas(this.$refs.canvas, img, this.pixelRatio)
 
                 initGUI()
-
-                this.uploaded = true
-
                 // canvas.width = img.width;
                 // canvas.height = img.height;
                 // ctx.drawImage(img, 0, 0);

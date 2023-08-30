@@ -4,36 +4,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image to Geometry</title>
+    <title>Image to Dotted pattern</title>
     <link rel="stylesheet" href="src/index.css">
 </head>
 
 <body>
-    <div id="app" x-data="appState">
+    <div id="app" x-data="appState" class="w-full h-full flex flex-col">
         <div class="full-w bg-slate-50 p-2 border-b flex items-center">
-            <ul class="flex">
-                <li><label><input type="file" accept="image/*" x-on:change="selectImage" class="text-sm text-grey-500
+            <div class="flex-1">
+                <label><input type="file" accept="image/*" x-on:change="selectImage" class="text-sm text-grey-500
                     file:mr-5 file:py-3 file:px-10
                     file:rounded-full file:border-0
                     file:text-md file:font-semibold  file:text-white
                     file:bg-gradient-to-r file:from-blue-600 file:to-amber-600
                     hover:file:cursor-pointer hover:file:opacity-80
-                    "></input></label></li>
-            </ul>
-            <h1 class="text-lg font-bold flex-1 block text-center">Convert image to dotted pattern</h1>
+                    "></input></label>
+            </div>
+            <h1 class="text-lg font-bold flex-1 block text-center">image to dotted pattern</h1>
             <div class="flex-1"></div>
         </div>
         <div id="canvas-container">
-            <canvas id="canvas" x-ref="canvas"></canvas>
+            <canvas x-show="uploaded" id="canvas" x-ref="canvas"></canvas>
         </div>
-        <div class="fixed bottom-0 p-2 h-16 border-t bg-slate-50 w-full">
-            <p x-show="!uploaded" class="w-full text-center">only black and white JPG images are supported right now</p>
+        <div x-show="!uploaded" class="w-full h-full flex flex-col justify-center items-center">
+            <div class="mb-4">
+                <h2 class="text-lg font-bold mb-2">Generate dotted pattern from black and white image</h2>
+                <p>1. upload black and white image, black area will be converted to evenly spaced dots.</p>
+                <p>2. adjust dots and colors using the control panel.</p>
+                <p>3. right click to download the finished image.</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <img src="map.png" width="300" class="border" />
+                <span> to </span>
+                <img src="map-dotted.png" width="300" class="border" />
+
+            </div>
+        </div>
+        <div class="fixed bottom-0 p-2 h-16 border-t bg-slate-50 w-full flex flex-col justify-center">
             <p x-show="uploaded" class="w-full text-center">right click generated image to download</p>
+            <p x-show="!uploaded" class="w-full text-center">only black and white JPG images are supported right now</p>
             <p x-show="uploaded" class="w-full text-center font-mono text-sm text-gray-500"
                 x-text="size.width + 'x' + size.height + ' @ ' + pixelRatio + 'X'"></p>
         </div>
-        <div id="dat-gui-container"></div>
-        <script type="module" src="src/main.js"></script>
+    </div>
+
+    <div id="dat-gui-container"></div>
+    <script type="module" src="src/main.js"></script>
 </body>
 
 </html>
