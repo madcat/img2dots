@@ -46,6 +46,19 @@
             <p x-show="uploaded" class="w-full text-center font-mono text-sm text-gray-500"
                 x-text="size.width + 'x' + size.height + ' @ ' + pixelRatio + 'X'"></p>
         </div>
+        <div class="absolute bottom-16 mb-4 left-4 bg-white border rounded p-4 shadow-md" x-data="{submit: false}">
+            <iframe name="votar" style="display:none;"></iframe>
+            <form @submit="submit=true" action="https://pb.lingfei.dev/api/collections/signups/records"
+                enctype="multipart/form-data" method="post" target="votar" class="flex flex-col gap-2 items-start w-64">
+                <h3 x-show="!submit" class="self-stretch">We love to hear from you:</h3>
+                <input x-show="!submit" type="email" placeholder="email" name="email" required
+                    class="border rounded p-2 mr-2 self-stretch" />
+                <input x-show="!submit" type="text" placeholder="questions or ideas" name="inquiry"
+                    class="border rounded p-2 mr-2 self-stretch" />
+                <button x-show="!submit" type="submit" class="btn btn-blue">submit</button>
+                <span x-show="submit">Well received!</span>
+            </form>
+        </div>
     </div>
 
     <div id="dat-gui-container"></div>
