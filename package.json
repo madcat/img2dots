@@ -1,11 +1,11 @@
 {
-  "name": "img2geom",
+  "name": "img2dots",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "dev": "npx vite --host",
-    "build": "npx vite build --base=/img2dots/ && rm -rf ../lingfei.dev/public/img2dots && mkdir -p ../lingfei.dev/public/img2dots && cp -r dist/* ../lingfei.dev/public/img2dots/",
+    "build": "npx vite build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
@@ -15,12 +15,12 @@
     "dat.gui": "^0.7.9",
     "postcss": "^8.4.26",
     "tailwindcss": "^3.3.3",
-    "vite": "^4.4.4"
+    "vite": "^5.3.1"
   },
   "dependencies": {
-    "@tweenjs/tween.js": "^21.0.0",
+    "@tweenjs/tween.js": "^23.1.2",
     "alpinejs": "^3.12.3",
     "stats.js": "^0.17.0",
-    "three": "^0.154.0"
+    "three": "^0.165.0"
   }
 }
